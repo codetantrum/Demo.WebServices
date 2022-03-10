@@ -22,20 +22,20 @@ provider "azurerm" {
 }
 
 resource "azurerm_resource_group" "rg-demo" {
-  name     = var.resource-group-name
+  name     = "rg-demo"
   location = var.resource-group-location
 }
 
 resource "azurerm_virtual_network" "vnet-demo" {
   name                = "vnet-demo"
   location            = var.resource-group-location
-  resource_group_name = var.resource-group-name
+  resource_group_name = azurerm_resource_group.rg-demo.name
   address_space       = ["10.0.0.0/8"]
 }
 
 resource "azurerm_subnet" "snet-demo" {
   name                 = "snet-demo"
-  resource_group_name  = var.resource-group-name
+  resource_group_name  = azurerm_resource_group.rg-demo.name
   virtual_network_name = azurerm_virtual_network.vnet-demo.name
   address_prefixes     = ["10.11.1.0/24"]
 }
@@ -43,7 +43,7 @@ resource "azurerm_subnet" "snet-demo" {
 resource "azurerm_public_ip" "pip-web1" {
   name                = "pip-web1"
   location            = var.resource-group-location
-  resource_group_name = var.resource-group-name
+  resource_group_name = azurerm_resource_group.rg-demo.name
   allocation_method   = "Static"
   sku                 = "Standard"
 }
@@ -52,7 +52,7 @@ resource "azurerm_public_ip" "pip-web1" {
 resource "azurerm_network_interface" "nic-web1" {
   name                = "nic-web1"
   location            = var.resource-group-location
-  resource_group_name = var.resource-group-name
+  resource_group_name = azurerm_resource_group.rg-demo.name
 
   ip_configuration {
     name                          = "internal"
@@ -65,7 +65,7 @@ resource "azurerm_network_interface" "nic-web1" {
 resource "azurerm_linux_virtual_machine" "vm-demo-web1" {
   name                = "vm-demo-web1"
   location            = var.resource-group-location
-  resource_group_name = var.resource-group-name
+  resource_group_name = azurerm_resource_group.rg-demo.name
   size                = "Standard_F2"
   admin_username      = "demoroot"
   user_data           = filebase64(var.userdata)
@@ -94,7 +94,7 @@ resource "azurerm_linux_virtual_machine" "vm-demo-web1" {
 resource "azurerm_public_ip" "pip-nat" {
   name                = "pip-nat"
   location            = var.resource-group-location
-  resource_group_name = var.resource-group-name
+  resource_group_name = azurerm_resource_group.rg-demo.name
   allocation_method   = "Static"
   sku                 = "Standard"
 }
@@ -107,7 +107,7 @@ resource "azurerm_nat_gateway_public_ip_association" "nat-gw-association" {
 resource "azurerm_nat_gateway" "nat-gateway" {
   name                = "nat-gateway"
   location            = var.resource-group-location
-  resource_group_name = var.resource-group-name
+  resource_group_name = azurerm_resource_group.rg-demo.name
 }
 # Associate the NAT gateway with VMSS subnet
 resource "azurerm_subnet_nat_gateway_association" "nat-gw-web" {
@@ -121,7 +121,7 @@ resource "azurerm_subnet_nat_gateway_association" "nat-gw-web" {
 resource "azurerm_network_security_group" "nsg-demo" {
   name                = "nsg-demo"
   location            = var.resource-group-location
-  resource_group_name = var.resource-group-name
+  resource_group_name = azurerm_resource_group.rg-demo.name
 
   security_rule {
     name                       = "http"
@@ -148,7 +148,7 @@ resource "azurerm_network_security_group" "nsg-demo" {
 }
 
 resource "azurerm_network_interface_security_group_association" "web-association" {
-  network_interface_id      = azurerm_virtual_network.vnet-demo.id
+  network_interface_id      = azurerm_network_interface.nic-web1.id
   network_security_group_id = azurerm_network_security_group.nsg-demo.id
 }
 # End NSG config
@@ -156,7 +156,7 @@ resource "azurerm_network_interface_security_group_association" "web-association
 # Begin Bastion config
 resource "azurerm_subnet" "snet-demo-bastion" {
   name                 = "AzureBastionSubnet"
-  resource_group_name  = var.resource-group-name
+  resource_group_name  = azurerm_resource_group.rg-demo.name
   virtual_network_name = azurerm_virtual_network.vnet-demo.name
   address_prefixes     = ["10.11.2.0/24"]
 }
@@ -164,7 +164,7 @@ resource "azurerm_subnet" "snet-demo-bastion" {
 resource "azurerm_public_ip" "bastion-public-ip" {
   name                = "bastion-public-ip"
   location            = var.resource-group-location
-  resource_group_name = var.resource-group-name
+  resource_group_name = azurerm_resource_group.rg-demo.name
   allocation_method   = "Static"
   sku                 = "Standard"
 }
@@ -172,7 +172,7 @@ resource "azurerm_public_ip" "bastion-public-ip" {
 resource "azurerm_bastion_host" "demo-bastion-1" {
   name                = "demo-bastion-1"
   location            = var.resource-group-location
-  resource_group_name = var.resource-group-name
+  resource_group_name = azurerm_resource_group.rg-demo.name
 
   ip_configuration {
     name                 = "configuration"
