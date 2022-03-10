@@ -1,0 +1,30 @@
+#cloud-config
+# Add groups to the system
+# Adds the ubuntu group with members 'root' and 'sys'
+# and the empty group hashicorp.
+groups:
+  - ubuntu: [root,sys]
+  - hashicorp
+
+# Add users to the system. Users are added after groups are added.
+users:
+  - default
+  - name: terraform
+    gecos: terraform
+    shell: /bin/bash
+    primary_group: hashicorp
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: users, admin
+    lock_passwd: false
+    ssh_authorized_keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDcimJYcQ/IgcoxadTeUCMVpdaQfAoUS84nTUVIRUF1mlox0lopnx2snovmSHCkag8K6E4QJLGyntv6oP35CpNFXHIFQJzhCMfynDB45aZGQkBXaD7vh6sB1ERR//VvSH1BiHBDA7Z2SM8VzmgOw6hQh4zU11p7+XWI0t8QrrOQ5EzdVm2/5PAA/PcCqlo3BKHZod3yUTx9fT5hU44ex0pl++Hfg6okypbVGdfTUdBYuRzy9DYGukhjgHQUTTc7cXgZnoFkctSENp3qMDRfY9kTKReBowef9j10FSleG3vVLJKXFnTKNyimU72lX2ovHpXKXzOrDByUX770yeyZPnj5tmLy1e8ukgEeNmcBgfAquLFL3M767gGcbhy6AVPE18s4X3Ff3OgdFGLsUc1/EvB+6jL2GeuUF1eY9EMt4C1re1+an0iSBO+KKCo2bBtU3lsXNLEFZ4+TdZ/rJaB9MFtqlbwqMePM7KM2jzfUWrhTIQ44SdVZROsn5wvc6OdplDM=
+
+# Downloads the apache2 package
+packages:
+  - apache2
+
+# Configures apache2
+runcmd:
+  - sudo apt install apache2 -y
+  - sudo systemctl start apache2
+  - sudo systemctl enable apache2
