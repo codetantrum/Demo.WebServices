@@ -5,7 +5,7 @@
 # Tools Used
 - OS: Mac OS X v12.2.1
 - IDE: PyCharm (Community Edition)
-- IaC: Azure-CLI, Terraform CLI 1.1.6
+- IaC: Azure-CLI, Terraform CLI 1.1.6, Hashicorp Cloud-init
 - Remote State: Terraform Cloud
 
 # Setup Procedure
@@ -34,17 +34,14 @@ ARM_TENANT_ID="<TENANT_VALUE>"
 3. In main.tf, change `cloud.organization` to the correct value
 
 ### Terraform CLI Setup
-1. Create an ssh keypair without a passphrase
+1. Create an ssh keypair without a passphrase named `tf-cloud-init`
 (https://github.com/hashicorp/terraform/issues/24898)
 `ssh-keygen -t rsa -C ""`
 2. Copy the public key to `admin_ssh_key.publickey` in main.tf
-3. Copy the private key to `/terraform` and update path in main.tf 
-(https://github.com/hashicorp/terraform/issues/29342)
+3. Copy the private key to `/terraform` and follow the instructions for setting up cloud-init
+   (https://learn.hashicorp.com/tutorials/terraform/cloud-init)
 
 # To Do
 - Deploy load balancer with SSL cert in front of web server
 - Add web server to scale set
-- Break out resources into seperate configs 
-- Use Packer to create custom image for use in vmss
-- Deploy Jenkins node 
-- Leverage variables file
+- Use Packer to create custom image for use by vmss
