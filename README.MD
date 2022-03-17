@@ -45,3 +45,14 @@ ARM_TENANT_ID="<TENANT_VALUE>"
 - Deploy load balancer with SSL cert in front of web server
 - Add web server to scale set
 - Use Packer to create custom image for use by vmss
+- store pki in tf cloud
+- move count to variables.tf
+
+# current changes
+added 2 backend pools (1 for each vm) *required* 
+   added, but check if needed
+added http load balancing rule *required* (depends on pools)
+   added but may need to re-specify backend pool
+added nsg and associated to snet-demo *required* 
+   added, but check if failures.. not able to add subnet. only nics
+created NSG any any rule for port 80 inbound *required* added
