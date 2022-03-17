@@ -10,7 +10,7 @@ terraform {
   cloud {
     organization = "Omegalul"
     workspaces {
-      name = "demo"
+      name = "demo-WebServices"
     }
   }
 
@@ -40,36 +40,91 @@ resource "azurerm_subnet" "snet-demo" {
   address_prefixes     = ["10.11.1.0/24"]
 }
 
-resource "azurerm_public_ip" "pip-web1" {
-  name                = "pip-web1"
+resource "azurerm_public_ip" "pip-lb" {
+  name                = "pip-lb"
   location            = var.resource-group-location
   resource_group_name = azurerm_resource_group.rg-demo.name
   allocation_method   = "Static"
   sku                 = "Standard"
 }
 
-
-resource "azurerm_network_interface" "nic-web1" {
-  name                = "nic-web1"
-  location            = var.resource-group-location
+resource "azurerm_lb" "lb-demo" {
+  name                = "lb-demo"
+  location            = azurerm_resource_group.rg-demo.location
   resource_group_name = azurerm_resource_group.rg-demo.name
+  sku                 = "Standard"
 
-  ip_configuration {
-    name                          = "internal"
-    subnet_id                     = azurerm_subnet.snet-demo.id
-    private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.pip-web1.id
+  frontend_ip_configuration {
+    name                 = "publicIPAddress"
+    public_ip_address_id = azurerm_public_ip.pip-lb.id
   }
 }
 
-resource "azurerm_linux_virtual_machine" "vm-demo-web1" {
-  name                = "vm-demo-web1"
-  location            = var.resource-group-location
+resource "azurerm_lb_backend_address_pool" "backend-addr-pool" {
+  loadbalancer_id = azurerm_lb.lb-demo.id
+  name            = "backend-addr-pool"
+}
+
+resource "azurerm_lb_probe" "demoProbe" {
   resource_group_name = azurerm_resource_group.rg-demo.name
-  size                = "Standard_F2"
-  admin_username      = "demoroot"
-  user_data           = filebase64(var.userdata)
-  network_interface_ids = [azurerm_network_interface.nic-web1.id]
+  loadbalancer_id     = azurerm_lb.lb-demo.id
+  name                = "demoProbe"
+  port                = 80
+}
+
+resource "azurerm_lb_rule" "demoHTTP" {
+  resource_group_name            = azurerm_resource_group.rg-demo.name
+  loadbalancer_id                = azurerm_lb.lb-demo.id
+  name                           = "demoHTTP"
+  protocol                       = "Tcp"
+  frontend_port                  = 80
+  backend_port                   = 80
+  backend_address_pool_ids       = [azurerm_lb_backend_address_pool.backend-addr-pool.id]
+  frontend_ip_configuration_name = "publicIPAddress"
+  probe_id                       = azurerm_lb_probe.demoProbe.id
+}
+
+# Associate the pool ID with each VM nic
+resource "azurerm_network_interface_backend_address_pool_association" "backend-addr-assoc" {
+  count                   = 2
+  network_interface_id    = element(azurerm_network_interface.nic-web.*.id, count.index)
+  ip_configuration_name   = "config-${count.index}"
+  backend_address_pool_id = azurerm_lb_backend_address_pool.backend-addr-pool.id
+}
+
+resource "azurerm_network_interface" "nic-web" {
+  count               = 2
+  name                = "web-nic${count.index}"
+  location            = azurerm_resource_group.rg-demo.location
+  resource_group_name = azurerm_resource_group.rg-demo.name
+
+  ip_configuration {
+    name                          = "config-${count.index}"
+    subnet_id                     = azurerm_subnet.snet-demo.id
+    private_ip_address_allocation = "Dynamic"
+  }
+}
+
+resource "azurerm_availability_set" "av-set-web" {
+  name                         = "av-set-web"
+  location                     = azurerm_resource_group.rg-demo.location
+  resource_group_name          = azurerm_resource_group.rg-demo.name
+  platform_fault_domain_count  = 2
+  platform_update_domain_count = 2
+  managed                      = true
+}
+
+resource "azurerm_linux_virtual_machine" "vm-web" {
+  count                 = 2
+  name                  = "vm-web-${count.index}"
+  location              = azurerm_resource_group.rg-demo.location
+  availability_set_id   = azurerm_availability_set.av-set-web.id
+  resource_group_name   = azurerm_resource_group.rg-demo.name
+  network_interface_ids = [element(azurerm_network_interface.nic-web.*.id, count.index)]
+  size                  = "Standard_F2"
+  admin_username        = "demoroot"
+  user_data             = filebase64(var.userdata)
+
   admin_ssh_key {
     username   = "demoroot"
     public_key = file(var.publickey)
@@ -87,7 +142,7 @@ resource "azurerm_linux_virtual_machine" "vm-demo-web1" {
     storage_account_type = "Standard_LRS"
   }
 }
-# End VM config
+
 
 # Begin NAT config for web vm outbound connectivity (apt update, etc.)
 # External IP address for NAT gateway
@@ -124,16 +179,17 @@ resource "azurerm_network_security_group" "nsg-demo" {
   resource_group_name = azurerm_resource_group.rg-demo.name
 
   security_rule {
-    name                       = "http"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
+    name                       = "demoHTTP"
     protocol                   = "Tcp"
     source_port_range          = "*"
-    destination_port_range     = "80"
     source_address_prefix      = "*"
+    destination_port_range     = "80"
     destination_address_prefix = "*"
+    access                     = "Allow"
+    direction                  = "Inbound"
+    priority                   = 100
   }
+  /*
   security_rule {
     name                       = "ssh"
     priority                   = 101
@@ -144,14 +200,16 @@ resource "azurerm_network_security_group" "nsg-demo" {
     destination_port_range     = "22"
     source_address_prefix      = "*"
     destination_address_prefix = "*"
-  }
+  } */
 }
 
 resource "azurerm_network_interface_security_group_association" "web-association" {
-  network_interface_id      = azurerm_network_interface.nic-web1.id
+  count = 2
+  network_interface_id      = element(azurerm_network_interface.nic-web.*.id, count.index)
   network_security_group_id = azurerm_network_security_group.nsg-demo.id
 }
 # End NSG config
+
 
 # Begin Bastion config
 resource "azurerm_subnet" "snet-demo-bastion" {

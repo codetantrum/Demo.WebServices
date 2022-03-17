@@ -17,7 +17,9 @@ users:
     groups: users, admin
     lock_passwd: false
     ssh_authorized_keys:
-      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDMFelnUFTHLwk7uGZ4Ve0tbkznnOz/jpEih/USHEM/Jyz3mjGbw7bVQ/nWdHRfEW+2u/qbex7OE8yU5sVfdAIF0G+KQgfZHSU2i3oVw+W3O9+PQdgAyBXpSN4WOYR4R/lKmzg3rEzt4WaMEFsipM9MOwrRtcFb78S6ufkqcjQP2rvqPRYbAF/WX4O/SaEtDbwIp6YDWUcTSBbphMBYowA8Cj2OqcJATKzw8Wck0P9i2QuCgRLHqGS++sGFYiOvkRK/vvYfFTFAPuUiK707Oh/H67CtGCcwi8fNe9XHh8KeEdylueJ/U5wOVQjrJC5TR5j43Zj72ITqYMXzllwrFrwfMKGcM+5/LyljZmiSXjMo6qNWY5nYZgLhYXMqom95yK0yl/QP+7gKJsOzXGojFENfB7t5sNVv4COWEVixrLmVz9r8bj/XFCLQbHo16DipUJQlAiZe7quAyDuKcl4ejPGSj+arpD8ubWEXCDVA3KYtHQJWzDFaZlhu4YJ8xSIIk1U=
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDKx50MQ3Az61VStuCo+q0d/xFeN6X1hSPcmRfeqqtC4vynwnoul74LkyJm5/cbaPcujxqTDXYafiGANRWv5p4qQ3KWxs5WrBry41fuP2ETOx6gFp6pI3m75uYKSUertqF6MxZ53Mac+Vy112YYnM3O3VIK4j7blPyIUSIEVmeqBIrVR0StFXlJcH4A2i6V30Ccnma
+        3HFdPCsyPhhO3XnQ8hK9sfyR8ZotqVwRTxgBTplh/GTe3K+iVtqgcTGEyf3cyQ6RJU4rg3fPmL/LniC9x4fMwc/aheH/hu0hPeRH2uELC9YvQ2iPhSs8fwJGrE6CE1rpGpeGPNDtO+l7pBQpwRLzqpSfqfFA0/mGP70tqApCx7iPE+k2O9vHvuVboA6saCxTaKHGNgR10a8JTzqCmq37G+3SDwe8P/axiT8+z8BYahS
+        f17sHOypgcv7gJTav7WcMVeP5bvqLoRU14hd3O1aeyHpl6G5mgAUKGSwg4fQIYdCGvMxpXQ0gYTV/YF30=
 
 # Downloads the apache2 package
 packages:

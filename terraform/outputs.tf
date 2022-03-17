@@ -3,5 +3,5 @@ output "pip-nat" {
 }
 
 output "pip-web" {
-  value = azurerm_public_ip.pip-web1.ip_address
+  value = azurerm_public_ip.pip-lb.ip_address
 }
