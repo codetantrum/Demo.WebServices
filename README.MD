@@ -1,5 +1,5 @@
 # Current Environment
-- 1 Linux virtual machine serving default Apache installation to the public
+- 2 load-balanced Linux virtual machines serving default Apache installation to the public
 - 1 bastion host for troubleshooting
 
 # Tools Used
@@ -23,7 +23,7 @@ everything running.
    (save these values for next step)
 
 ### Terraform Cloud 
-1. Create an organization and/or workspace ("demo" workspace used here)
+1. Create an organization and/or workspace ("demo-WebServices" workspace used here)
 2. Add environment variables in Terraform Cloud workspace for the Azure provider created above
 ```
 ARM_CLIENT_ID="<APPID_VALUE>"
@@ -42,17 +42,8 @@ ARM_TENANT_ID="<TENANT_VALUE>"
    (https://learn.hashicorp.com/tutorials/terraform/cloud-init)
 
 # To Do
-- Deploy load balancer with SSL cert in front of web server
+- Add SSL cert to load balancer
 - Add web server to scale set
 - Use Packer to create custom image for use by vmss
-- store pki in tf cloud
+- store pki in tf cloud instead of locally
 - move count to variables.tf
-
-# current changes
-added 2 backend pools (1 for each vm) *required* 
-   added, but check if needed
-added http load balancing rule *required* (depends on pools)
-   added but may need to re-specify backend pool
-added nsg and associated to snet-demo *required* 
-   added, but check if failures.. not able to add subnet. only nics
-created NSG any any rule for port 80 inbound *required* added
