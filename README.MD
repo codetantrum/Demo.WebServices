@@ -46,4 +46,3 @@ ARM_TENANT_ID="<TENANT_VALUE>"
 - Add web server to scale set
 - Use Packer to create custom image for use by vmss
 - store pki in tf cloud instead of locally
-- move count to variables.tf

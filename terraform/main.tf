@@ -4,9 +4,12 @@ terraform {
     azurerm = {
       source  = "hashicorp/azurerm"
       version = "~> 2.65"
+      # shorthand for allowing only patch releases within a specific minor release
+      # https://www.terraform.io/language/providers/requirements#version-constraints
     }
   }
   # Configure Terraform Cloud provider
+  # https://cloud.hashicorp.com/products/terraform
   cloud {
     organization = "Omegalul"
     workspaces {
@@ -16,23 +19,26 @@ terraform {
 
   required_version = ">= 1.1.0"
 }
-
+# At least 1 "features" blocks are required
 provider "azurerm" {
   features {}
 }
 
+# All resources are stored in this group
 resource "azurerm_resource_group" "rg-demo" {
-  name     = "rg-demo"
-  location = var.resource-group-location
+  name     = var.rg-name
+  location = var.rg-location
 }
 
+# All resources sit on this virtual network
 resource "azurerm_virtual_network" "vnet-demo" {
   name                = "vnet-demo"
-  location            = var.resource-group-location
+  location            = var.rg-location
   resource_group_name = azurerm_resource_group.rg-demo.name
   address_space       = ["10.0.0.0/8"]
 }
 
+# Backend web server subnet
 resource "azurerm_subnet" "snet-demo" {
   name                 = "snet-demo"
   resource_group_name  = azurerm_resource_group.rg-demo.name
@@ -40,14 +46,17 @@ resource "azurerm_subnet" "snet-demo" {
   address_prefixes     = ["10.11.1.0/24"]
 }
 
+# External (public) IP address for frontend load balancer
+# Standard SKU required for static allocation and for use with Standard SKU load balancer
 resource "azurerm_public_ip" "pip-lb" {
   name                = "pip-lb"
-  location            = var.resource-group-location
+  location            = var.rg-location
   resource_group_name = azurerm_resource_group.rg-demo.name
   allocation_method   = "Static"
   sku                 = "Standard"
 }
 
+# Begin load balancer configuration
 resource "azurerm_lb" "lb-demo" {
   name                = "lb-demo"
   location            = azurerm_resource_group.rg-demo.location
@@ -60,11 +69,21 @@ resource "azurerm_lb" "lb-demo" {
   }
 }
 
+# Pool containing multiple web server NICs
 resource "azurerm_lb_backend_address_pool" "backend-addr-pool" {
   loadbalancer_id = azurerm_lb.lb-demo.id
   name            = "backend-addr-pool"
 }
 
+# Associate the pool ID with each web server NIC
+resource "azurerm_network_interface_backend_address_pool_association" "backend-addr-assoc" {
+  count                   = 2
+  network_interface_id    = element(azurerm_network_interface.nic-web.*.id, count.index)
+  ip_configuration_name   = "config-${count.index}"
+  backend_address_pool_id = azurerm_lb_backend_address_pool.backend-addr-pool.id
+}
+
+# Load balancer probe to determine healthy backend nodes
 resource "azurerm_lb_probe" "demoProbe" {
   resource_group_name = azurerm_resource_group.rg-demo.name
   loadbalancer_id     = azurerm_lb.lb-demo.id
@@ -72,6 +91,7 @@ resource "azurerm_lb_probe" "demoProbe" {
   port                = 80
 }
 
+# Inbound load balancer rule to allow 80/tcp from the WAN to the backend web server pool
 resource "azurerm_lb_rule" "demoHTTP" {
   resource_group_name            = azurerm_resource_group.rg-demo.name
   loadbalancer_id                = azurerm_lb.lb-demo.id
@@ -83,17 +103,14 @@ resource "azurerm_lb_rule" "demoHTTP" {
   frontend_ip_configuration_name = "publicIPAddress"
   probe_id                       = azurerm_lb_probe.demoProbe.id
 }
+# End load balancer configuration
 
-# Associate the pool ID with each VM nic
-resource "azurerm_network_interface_backend_address_pool_association" "backend-addr-assoc" {
-  count                   = 2
-  network_interface_id    = element(azurerm_network_interface.nic-web.*.id, count.index)
-  ip_configuration_name   = "config-${count.index}"
-  backend_address_pool_id = azurerm_lb_backend_address_pool.backend-addr-pool.id
-}
 
+# Web server network interface
+# The count meta-argument creates the specified number of defined resources
+# https://www.terraform.io/language/meta-arguments/count
 resource "azurerm_network_interface" "nic-web" {
-  count               = 2
+  count               = var.num-web-servers
   name                = "web-nic${count.index}"
   location            = azurerm_resource_group.rg-demo.location
   resource_group_name = azurerm_resource_group.rg-demo.name
@@ -105,6 +122,9 @@ resource "azurerm_network_interface" "nic-web" {
   }
 }
 
+# Availability set for web servers
+# Fault domains are groups of VMs that share a common power source and network switch in Azure datacenters
+# Update domains are groups of VMs that can be rebooted at the same time
 resource "azurerm_availability_set" "av-set-web" {
   name                         = "av-set-web"
   location                     = azurerm_resource_group.rg-demo.location
@@ -114,6 +134,8 @@ resource "azurerm_availability_set" "av-set-web" {
   managed                      = true
 }
 
+# Begin web server VM configuration
+# user_data comes from add-web-app-ssh.yaml; base64 encoding required
 resource "azurerm_linux_virtual_machine" "vm-web" {
   count                 = 2
   name                  = "vm-web-${count.index}"
@@ -142,13 +164,13 @@ resource "azurerm_linux_virtual_machine" "vm-web" {
     storage_account_type = "Standard_LRS"
   }
 }
+# End web server VM config
 
-
-# Begin NAT config for web vm outbound connectivity (apt update, etc.)
+# Begin NAT config for web VM outbound connectivity (apt update, etc.)
 # External IP address for NAT gateway
 resource "azurerm_public_ip" "pip-nat" {
   name                = "pip-nat"
-  location            = var.resource-group-location
+  location            = var.rg-location
   resource_group_name = azurerm_resource_group.rg-demo.name
   allocation_method   = "Static"
   sku                 = "Standard"
@@ -161,10 +183,10 @@ resource "azurerm_nat_gateway_public_ip_association" "nat-gw-association" {
 # Create the NAT gateway
 resource "azurerm_nat_gateway" "nat-gateway" {
   name                = "nat-gateway"
-  location            = var.resource-group-location
+  location            = var.rg-location
   resource_group_name = azurerm_resource_group.rg-demo.name
 }
-# Associate the NAT gateway with VMSS subnet
+# Associate the NAT gateway with web server subnet
 resource "azurerm_subnet_nat_gateway_association" "nat-gw-web" {
   subnet_id      = azurerm_subnet.snet-demo.id
   nat_gateway_id = azurerm_nat_gateway.nat-gateway.id
@@ -172,10 +194,10 @@ resource "azurerm_subnet_nat_gateway_association" "nat-gw-web" {
 # End NAT config
 
 # Begin NSG config
-# Allow http and ssh access from the public WAN
+# Allow HTTP access from the WAN
 resource "azurerm_network_security_group" "nsg-demo" {
   name                = "nsg-demo"
-  location            = var.resource-group-location
+  location            = var.rg-location
   resource_group_name = azurerm_resource_group.rg-demo.name
 
   security_rule {
@@ -189,18 +211,6 @@ resource "azurerm_network_security_group" "nsg-demo" {
     direction                  = "Inbound"
     priority                   = 100
   }
-  /*
-  security_rule {
-    name                       = "ssh"
-    priority                   = 101
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "22"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  } */
 }
 
 resource "azurerm_network_interface_security_group_association" "web-association" {
@@ -212,6 +222,7 @@ resource "azurerm_network_interface_security_group_association" "web-association
 
 
 # Begin Bastion config
+# AzureBastionSubnet is the required name for this resource
 resource "azurerm_subnet" "snet-demo-bastion" {
   name                 = "AzureBastionSubnet"
   resource_group_name  = azurerm_resource_group.rg-demo.name
@@ -221,7 +232,7 @@ resource "azurerm_subnet" "snet-demo-bastion" {
 
 resource "azurerm_public_ip" "bastion-public-ip" {
   name                = "bastion-public-ip"
-  location            = var.resource-group-location
+  location            = var.rg-location
   resource_group_name = azurerm_resource_group.rg-demo.name
   allocation_method   = "Static"
   sku                 = "Standard"
@@ -229,7 +240,7 @@ resource "azurerm_public_ip" "bastion-public-ip" {
 
 resource "azurerm_bastion_host" "demo-bastion-1" {
   name                = "demo-bastion-1"
-  location            = var.resource-group-location
+  location            = var.rg-location
   resource_group_name = azurerm_resource_group.rg-demo.name
 
   ip_configuration {
