@@ -10,9 +10,8 @@ variable "rg-location" {
   description = "Resource group location"
 }
 
-variable "publickey" {
+variable "public_key" {
   type    = string
-  default = "tf-cloud-init.pub"
   description = "Public key for SSH access (add-web-app-ssh.yaml)"
 }
 

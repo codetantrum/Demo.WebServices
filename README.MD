@@ -20,7 +20,14 @@ everything running.
 2. `az login`
 3. `az account set --subscription [subscription id]`
 4. `az ad sp create-for-rbac --role="Contributor" --scopes="/subscriptions/[subscription id]`
-   (save these values for next step)
+   (save these values for later)
+
+### Terraform CLI Setup
+1. Create an ssh keypair without a passphrase named `tf-cloud-init`
+(https://github.com/hashicorp/terraform/issues/24898)
+`ssh-keygen -t rsa -C ""`
+2. Copy the private key to `/terraform` and follow the instructions for setting up cloud-init
+   (https://learn.hashicorp.com/tutorials/terraform/cloud-init)
 
 ### Terraform Cloud 
 1. Create an organization and/or workspace ("demo-WebServices" workspace used here)
@@ -31,18 +38,13 @@ ARM_CLIENT_SECRET="<PASSWORD_VALUE>"
 ARM_SUBSCRIPTION_ID="<SUBSCRIPTION_ID>"
 ARM_TENANT_ID="<TENANT_VALUE>"
 ```
-3. In main.tf, change `cloud.organization` to the correct value
-
-### Terraform CLI Setup
-1. Create an ssh keypair without a passphrase named `tf-cloud-init`
-(https://github.com/hashicorp/terraform/issues/24898)
-`ssh-keygen -t rsa -C ""`
-2. Copy the public key to `admin_ssh_key.publickey` in main.tf
-3. Copy the private key to `/terraform` and follow the instructions for setting up cloud-init
-   (https://learn.hashicorp.com/tutorials/terraform/cloud-init)
+3. Add environment variable for Terraform Cloud public key value
+```
+TF_VAR_public_key="<contents of tf-cloud-init.pub>"
+```
+4. In main.tf, change `cloud.organization` to the correct value
 
 # To Do
-- Add SSL cert to load balancer
-- Add web server to scale set
-- Use Packer to create custom image for use by vmss
-- store pki in tf cloud instead of locally
+- build backend database
+- link frontend web server with backend MySQL database
+- make site pretty and mobile-ready

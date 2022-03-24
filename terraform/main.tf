@@ -19,7 +19,7 @@ terraform {
 
   required_version = ">= 1.1.0"
 }
-# At least 1 "features" blocks are required
+# At least 1 "features" block is required
 provider "azurerm" {
   features {}
 }
@@ -75,14 +75,6 @@ resource "azurerm_lb_backend_address_pool" "backend-addr-pool" {
   name            = "backend-addr-pool"
 }
 
-# Associate the pool ID with each web server NIC
-resource "azurerm_network_interface_backend_address_pool_association" "backend-addr-assoc" {
-  count                   = 2
-  network_interface_id    = element(azurerm_network_interface.nic-web.*.id, count.index)
-  ip_configuration_name   = "config-${count.index}"
-  backend_address_pool_id = azurerm_lb_backend_address_pool.backend-addr-pool.id
-}
-
 # Load balancer probe to determine healthy backend nodes
 resource "azurerm_lb_probe" "demoProbe" {
   resource_group_name = azurerm_resource_group.rg-demo.name
@@ -105,51 +97,20 @@ resource "azurerm_lb_rule" "demoHTTP" {
 }
 # End load balancer configuration
 
-
-# Web server network interface
-# The count meta-argument creates the specified number of defined resources
-# https://www.terraform.io/language/meta-arguments/count
-resource "azurerm_network_interface" "nic-web" {
-  count               = var.num-web-servers
-  name                = "web-nic${count.index}"
-  location            = azurerm_resource_group.rg-demo.location
-  resource_group_name = azurerm_resource_group.rg-demo.name
-
-  ip_configuration {
-    name                          = "config-${count.index}"
-    subnet_id                     = azurerm_subnet.snet-demo.id
-    private_ip_address_allocation = "Dynamic"
-  }
-}
-
-# Availability set for web servers
-# Fault domains are groups of VMs that share a common power source and network switch in Azure datacenters
-# Update domains are groups of VMs that can be rebooted at the same time
-resource "azurerm_availability_set" "av-set-web" {
-  name                         = "av-set-web"
-  location                     = azurerm_resource_group.rg-demo.location
-  resource_group_name          = azurerm_resource_group.rg-demo.name
-  platform_fault_domain_count  = 2
-  platform_update_domain_count = 2
-  managed                      = true
-}
-
-# Begin web server VM configuration
+# Begin web server VMSS configuration
 # user_data comes from add-web-app-ssh.yaml; base64 encoding required
-resource "azurerm_linux_virtual_machine" "vm-web" {
-  count                 = 2
-  name                  = "vm-web-${count.index}"
-  location              = azurerm_resource_group.rg-demo.location
-  availability_set_id   = azurerm_availability_set.av-set-web.id
+resource "azurerm_linux_virtual_machine_scale_set" "vmss-web" {
+  name                  = "vmss-web"
   resource_group_name   = azurerm_resource_group.rg-demo.name
-  network_interface_ids = [element(azurerm_network_interface.nic-web.*.id, count.index)]
-  size                  = "Standard_F2"
+  location              = azurerm_resource_group.rg-demo.location
+  sku                   = "Standard_F2"
+  instances             = 2
   admin_username        = "demoroot"
   user_data             = filebase64(var.userdata)
 
   admin_ssh_key {
     username   = "demoroot"
-    public_key = file(var.publickey)
+    public_key = var.public_key
   }
 
   source_image_reference {
@@ -163,10 +124,23 @@ resource "azurerm_linux_virtual_machine" "vm-web" {
     caching              = "ReadWrite"
     storage_account_type = "Standard_LRS"
   }
+
+  network_interface {
+    name = "nic-web"
+    primary = true
+
+    ip_configuration {
+      name = "vmss-web"
+      primary = true
+      subnet_id = azurerm_subnet.snet-demo.id
+      load_balancer_backend_address_pool_ids = [azurerm_lb_backend_address_pool.backend-addr-pool.id]
+    }
+    network_security_group_id = azurerm_network_security_group.nsg-demo.id
+  }
 }
 # End web server VM config
 
-# Begin NAT config for web VM outbound connectivity (apt update, etc.)
+# Begin NAT config for outbound connectivity
 # External IP address for NAT gateway
 resource "azurerm_public_ip" "pip-nat" {
   name                = "pip-nat"
@@ -213,9 +187,8 @@ resource "azurerm_network_security_group" "nsg-demo" {
   }
 }
 
-resource "azurerm_network_interface_security_group_association" "web-association" {
-  count = 2
-  network_interface_id      = element(azurerm_network_interface.nic-web.*.id, count.index)
+resource "azurerm_subnet_network_security_group_association" "web-association" {
+  subnet_id      = azurerm_subnet.snet-demo.id
   network_security_group_id = azurerm_network_security_group.nsg-demo.id
 }
 # End NSG config
